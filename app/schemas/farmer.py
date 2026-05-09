@@ -3,6 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
+
 class FarmerRegister(BaseModel):
     full_name: str
     phone_number: str
@@ -22,13 +23,16 @@ class FarmerRegister(BaseModel):
             raise ValueError('Password minimal 8 karakter')
         return v
 
+
 class FarmerLogin(BaseModel):
     phone_number: str
     password: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
 
 class FarmerResponse(BaseModel):
     id: UUID
@@ -41,6 +45,7 @@ class FarmerResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class FarmCreate(BaseModel):
     name: str
     area_hectares: float
@@ -48,9 +53,28 @@ class FarmCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
+
 class FarmResponse(FarmCreate):
     id: UUID
     farmer_id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DiagnosisCreate(BaseModel):
+    farm_id: UUID
+
+
+class DiagnosisResponse(BaseModel):
+    id: UUID
+    farmer_id: UUID
+    farm_id: UUID
+    image_url: str
+    disease_name: Optional[str]
+    confidence_score: Optional[float]
+    recommendation: Optional[str]
     created_at: datetime
 
     class Config:
