@@ -2,6 +2,7 @@ from pydantic import BaseModel, validator
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
+from datetime import date
 
 
 class FarmerRegister(BaseModel):
@@ -75,6 +76,44 @@ class DiagnosisResponse(BaseModel):
     disease_name: Optional[str]
     confidence_score: Optional[float]
     recommendation: Optional[str]
+    created_at: datetime
+
+class PolicyCreate(BaseModel):
+    farm_id: UUID
+    premium_amount: float
+    coverage_amount: float
+    duration_months: int = 6
+    trigger_rain_mm: float = 50.0
+    trigger_dry_days: float = 7.0
+    trigger_temp_max: float = 38.0
+
+class PolicyResponse(BaseModel):
+    id: UUID
+    farmer_id: UUID
+    farm_id: UUID
+    status: str
+    premium_amount: float
+    coverage_amount: float
+    start_date: datetime
+    end_date: datetime
+    trigger_rain_mm: float
+    trigger_dry_days: float
+    trigger_temp_max: float
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ClaimResponse(BaseModel):
+    id: UUID
+    policy_id: UUID
+    farmer_id: UUID
+    trigger_type: str
+    trigger_value: float
+    trigger_threshold: float
+    claim_amount: float
+    status: str
+    weather_date: datetime
     created_at: datetime
 
     class Config:

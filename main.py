@@ -4,6 +4,7 @@ from app.core.database import engine, Base
 from app.api.auth import router as auth_router, farm_router
 from app.api.diagnosis import router as diagnosis_router
 from app.api.weather import router as weather_router
+from app.api.insurance import router as insurance_router
 import app.models.farmer
 
 Base.metadata.create_all(bind=engine)
@@ -11,7 +12,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="FarmLens API",
     description="Platform AI untuk petani kecil Indonesia",
-    version="0.3.0"
+    version="0.4.0"
 )
 
 app.add_middleware(
@@ -26,6 +27,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(farm_router, prefix="/api/v1")
 app.include_router(diagnosis_router, prefix="/api/v1")
 app.include_router(weather_router, prefix="/api/v1")
+app.include_router(insurance_router, prefix="/api/v1")
 
 @app.get("/")
 def root():
