@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --green-primary: #16a34a;
+  --green-light: #dcfce7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f9fafb;
+  max-width: 480px;  /* Mobile-first: max width seperti layar HP */
+  margin: 0 auto;
+}
