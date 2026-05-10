@@ -3,6 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional
 from datetime import date
+from typing import Optional, List
 
 
 class FarmerRegister(BaseModel):
@@ -75,6 +76,12 @@ class DiagnosisResponse(BaseModel):
     image_url: str
     disease_name: Optional[str]
     confidence_score: Optional[float]
+    severity: Optional[str]
+    cause_explanation: Optional[str]
+    warning_signs: Optional[str]
+    action_steps: Optional[str]
+    urgency: Optional[str]
+    estimated_yield_impact: Optional[str]
     recommendation: Optional[str]
     created_at: datetime
 

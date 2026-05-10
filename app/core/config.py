@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
     GEMINI_API_KEY: str = ""
     OPENROUTER_API_KEY: str
+    SUPABASE_URL: str
+    SUPABASE_SERVICE_KEY: str
 
     class Config:
         env_file = ".env"

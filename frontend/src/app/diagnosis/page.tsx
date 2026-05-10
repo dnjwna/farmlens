@@ -1,11 +1,10 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { Farm, Diagnosis } from "@/types";
 import { ArrowLeft, Camera, Upload } from "lucide-react";
-import { useEffect } from "react";
 
 export default function DiagnosisPage() {
   const router = useRouter();
@@ -55,6 +54,19 @@ export default function DiagnosisPage() {
     }
   };
 
+  const parseSteps = (raw: string | null): string[] => {
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return [raw]; }
+  };
+
+  const urgencyStyle = (u: string | null) => {
+  if (!u) return "bg-gray-100 text-gray-600";
+  const lower = u.toLowerCase();
+  if (lower.includes("segera") || lower.includes("24")) return "bg-red-100 text-red-700";
+  if (lower.includes("minggu")) return "bg-amber-100 text-amber-700";
+  return "bg-green-100 text-green-700";
+};
+
   const confidenceColor = (score: number) => {
     if (score >= 0.8) return "text-green-600";
     if (score >= 0.5) return "text-amber-600";
@@ -96,27 +108,15 @@ export default function DiagnosisPage() {
           className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-6 text-center cursor-pointer"
         >
           {preview ? (
-            <img
-              src={preview}
-              alt="preview"
-              className="w-full max-h-60 object-cover rounded-xl"
-            />
+            <img src={preview} alt="preview" className="w-full max-h-60 object-cover rounded-xl"/>
           ) : (
             <div>
               <Camera size={40} className="text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm font-medium">
-                Foto daun atau bagian tanaman
-              </p>
+              <p className="text-gray-500 text-sm font-medium">Foto daun atau bagian tanaman</p>
               <p className="text-gray-400 text-xs mt-1">JPG, PNG, WebP — max 10MB</p>
             </div>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFile}
-          />
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile}/>
         </div>
 
         {preview && (
@@ -132,32 +132,79 @@ export default function DiagnosisPage() {
 
         {/* Hasil diagnosis */}
         {result && (
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
-            <h2 className="font-bold text-gray-800">Hasil Diagnosis</h2>
-
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-xs text-gray-500">Kondisi Tanaman</p>
-                <p className="font-semibold text-gray-800 text-lg">
-                  {result.disease_name}
-                </p>
+          <div className="space-y-3 pb-6">
+            {/* Header hasil */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Kondisi Tanaman</p>
+                  <p className="font-bold text-gray-800 text-xl">{result.disease_name}</p>
+                  {result.severity && (
+                    <p className="text-xs text-gray-500 mt-1 capitalize">Tingkat keparahan: {result.severity}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Akurasi AI</p>
+                  <p className={`font-bold text-xl ${confidenceColor(result.confidence_score || 0)}`}>
+                    {Math.round((result.confidence_score || 0) * 100)}%
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">Akurasi</p>
-                <p className={`font-bold text-lg ${confidenceColor(result.confidence_score || 0)}`}>
-                  {Math.round((result.confidence_score || 0) * 100)}%
-                </p>
-              </div>
+              {result.urgency && !['tinggal','segera','lainnya'].includes(result.urgency.toLowerCase().trim()) && (
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${urgencyStyle(result.urgency)}`}>
+                  ⏰ {result.urgency}
+                </span>
+              )}    
             </div>
 
-            <div className="bg-green-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-green-800 mb-1">
-                💊 Rekomendasi
-              </p>
-              <p className="text-green-700 text-sm leading-relaxed">
-                {result.recommendation}
-              </p>
-            </div>
+            {/* Yang terlihat */}
+            {result.warning_signs && result.warning_signs !== '-' && (
+              <div className="bg-white rounded-2xl p-4 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-2">🔍 Yang terlihat di tanamanmu</p>
+                <p className="text-gray-700 text-sm leading-relaxed">{result.warning_signs}</p>
+              </div>
+            )}
+
+            {/* Kenapa terjadi */}
+            {result.cause_explanation && (
+              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100">
+                <p className="text-xs font-semibold text-amber-700 mb-2">💡 Kenapa ini terjadi?</p>
+                <p className="text-amber-800 text-sm leading-relaxed">{result.cause_explanation}</p>
+              </div>
+            )}
+
+            {/* Langkah tindakan */}
+            {parseSteps(result.action_steps).length > 0 && (
+              <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
+                <p className="text-xs font-semibold text-green-700 mb-3">✅ Yang harus kamu lakukan</p>
+                <div className="space-y-2">
+                  {parseSteps(result.action_steps).map((step, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="bg-green-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-green-800 text-sm leading-relaxed">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dampak ke panen */}
+            {result.estimated_yield_impact && result.estimated_yield_impact !== '-' && (
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-100">
+                <p className="text-xs font-semibold text-red-700 mb-2">📉 Dampak ke hasil panen</p>
+                <p className="text-red-800 text-sm leading-relaxed">{result.estimated_yield_impact}</p>
+              </div>
+            )}
+
+            {/* Pencegahan */}
+            {result.recommendation && (
+              <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                <p className="text-xs font-semibold text-blue-700 mb-2">🛡 Pencegahan ke depan</p>
+                <p className="text-blue-800 text-sm leading-relaxed">{result.recommendation}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

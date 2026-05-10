@@ -25,6 +25,12 @@ export interface Diagnosis {
   image_url: string;
   disease_name: string | null;
   confidence_score: number | null;
+  severity: string | null;
+  cause_explanation: string | null;
+  warning_signs: string | null;
+  action_steps: string | null;
+  urgency: string | null;
+  estimated_yield_impact: string | null;
   recommendation: string | null;
   created_at: string;
 }

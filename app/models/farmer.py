@@ -45,6 +45,12 @@ class Diagnosis(Base):
     image_url = Column(String, nullable=False)
     disease_name = Column(String(100))
     confidence_score = Column(Float)
+    severity = Column(String(20))
+    cause_explanation = Column(Text)
+    warning_signs = Column(Text)
+    action_steps = Column(Text)  # disimpan sebagai JSON string
+    urgency = Column(String(50))
+    estimated_yield_impact = Column(Text)
     recommendation = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 

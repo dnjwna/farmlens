@@ -1,3 +1,4 @@
+import json as json_module
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -20,7 +21,6 @@ async def create_diagnosis(
     db: Session = Depends(get_db),
     farmer: Farmer = Depends(get_current_farmer)
 ):
-    # Validasi farm milik petani yang login
     farm = db.query(Farm).filter(
         Farm.id == farm_id,
         Farm.farmer_id == farmer.id
@@ -28,32 +28,28 @@ async def create_diagnosis(
     if not farm:
         raise HTTPException(status_code=404, detail="Lahan tidak ditemukan")
 
-    # Validasi tipe file
     if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Format file harus JPG, PNG, atau WebP"
-        )
+        raise HTTPException(status_code=400, detail="Format file harus JPG, PNG, atau WebP")
 
-    # Baca dan validasi ukuran file
     image_bytes = await file.read()
     if len(image_bytes) > MAX_SIZE_MB * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Ukuran file maksimal {MAX_SIZE_MB}MB"
-        )
+        raise HTTPException(status_code=400, detail=f"Ukuran file maksimal {MAX_SIZE_MB}MB")
 
-    # Kirim ke Gemini untuk diagnosis
-    result = await diagnose_plant(image_bytes)
+    result = await diagnose_plant(image_bytes, file.filename or "image.jpg")
 
-    # Simpan hasil ke database
     diagnosis = Diagnosis(
         farmer_id=farmer.id,
         farm_id=farm_id,
-        image_url=f"uploaded/{file.filename}",  # nanti diganti Supabase Storage
+        image_url=result.get("image_url", ""),
         disease_name=result.get("disease_name"),
         confidence_score=result.get("confidence_score"),
-        recommendation=f"{result.get('recommendation', '')} | Pencegahan: {result.get('preventive_measures', '')}"
+        severity=result.get("severity"),
+        cause_explanation=result.get("cause_explanation"),
+        warning_signs=result.get("warning_signs"),
+        action_steps=result.get("action_steps"),
+        urgency=result.get("urgency"),
+        estimated_yield_impact=result.get("estimated_yield_impact"),
+        recommendation=result.get("preventive_measures"),
     )
     db.add(diagnosis)
     db.commit()
