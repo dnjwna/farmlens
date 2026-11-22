@@ -47,8 +47,8 @@ export default function DiagnosisPage() {
       );
       setResult(res.data);
       toast.success("Diagnosis selesai!");
-    } catch {
-      toast.error("Gagal menganalisis foto");
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Gagal menganalisis foto");
     } finally {
       setLoading(false);
     }

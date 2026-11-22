@@ -1,4 +1,4 @@
-import json as json_module
+import logging
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -7,8 +7,9 @@ from app.core.database import get_db
 from app.api.auth import get_current_farmer
 from app.models.farmer import Farmer, Diagnosis, Farm
 from app.schemas.farmer import DiagnosisResponse
-from app.services.diagnosis_service import diagnose_plant
+from app.services.diagnosis_service import DiagnosisError, diagnose_plant
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/diagnoses", tags=["Diagnosis"])
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -35,7 +36,19 @@ async def create_diagnosis(
     if len(image_bytes) > MAX_SIZE_MB * 1024 * 1024:
         raise HTTPException(status_code=400, detail=f"Ukuran file maksimal {MAX_SIZE_MB}MB")
 
-    result = await diagnose_plant(image_bytes, file.filename or "image.jpg")
+    try:
+        result = await diagnose_plant(
+            image_bytes,
+            filename=file.filename or "image.jpg",
+            mime_type=file.content_type,
+            crop_type=farm.crop_type,
+        )
+    except DiagnosisError as exc:
+        logger.error("Diagnosis failed: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Layanan AI sedang tidak tersedia. Coba lagi beberapa saat lagi.",
+        )
 
     diagnosis = Diagnosis(
         farmer_id=farmer.id,
