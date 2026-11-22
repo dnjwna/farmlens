@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     # Comma-separated, tried in order. Free-tier quota differs per model and per
     # project, so the service falls back to the next model on 404/429/5xx.
+    # Optional separate key for scripts/evaluate_diagnosis.py, so evaluation runs do not
+    # consume the free-tier quota that the app needs for real diagnoses.
+    EVAL_GEMINI_API_KEY: str = ""
     GEMINI_MODELS: str = "gemini-2.5-flash,gemini-flash-latest,gemini-2.5-flash-lite"
 
     # Supabase Storage for diagnosis photos (optional; diagnosis works without it)
