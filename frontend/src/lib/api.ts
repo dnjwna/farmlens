@@ -40,3 +40,16 @@ export function apiErrorDetail(err: unknown): string | undefined {
   }
   return undefined;
 }
+
+/** User-facing reason a request failed: unreachable server vs server error vs API message. */
+export function describeLoadError(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    if (!err.response) {
+      return "Server FarmLens tidak bisa dihubungi. Pastikan backend sedang jalan, lalu coba lagi.";
+    }
+    const detail = apiErrorDetail(err);
+    if (detail) return detail;
+    if (err.response.status >= 500) return `Server sedang bermasalah (kode ${err.response.status}). Coba lagi nanti.`;
+  }
+  return fallback;
+}

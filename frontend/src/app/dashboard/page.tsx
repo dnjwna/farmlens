@@ -18,7 +18,7 @@ import {
   Wind,
 } from "lucide-react";
 import { getMe } from "@/lib/auth";
-import api, { apiErrorDetail } from "@/lib/api";
+import api, { apiErrorDetail, describeLoadError } from "@/lib/api";
 import { Farmer, Farm, WeatherData } from "@/types";
 import { PageShell } from "@/components/AppShell";
 import { Badge, Card, ConfirmDialog, Notice, Skeleton } from "@/components/ui";
@@ -87,16 +87,22 @@ export default function DashboardPage() {
         setFarmer(farmerData);
         setFarms(farmsData);
 
+        // Weather is optional: a weather failure must not hide the farmer's data.
         const withLocation = farmsData.find(hasLocation);
         if (withLocation) {
-          const w = await api.get<WeatherData>(`/weather/farm/${withLocation.id}`);
-          if (active) {
-            setWeather(w.data);
-            setWeatherFarmId(withLocation.id);
+          try {
+            const w = await api.get<WeatherData>(`/weather/farm/${withLocation.id}`);
+            if (active) {
+              setWeather(w.data);
+              setWeatherFarmId(withLocation.id);
+            }
+          } catch (err) {
+            console.error("[FarmLens] weather load failed", err);
           }
         }
-      } catch {
-        if (active) toast.error("Gagal memuat data. Periksa koneksi internet.");
+      } catch (err) {
+        console.error("[FarmLens] dashboard load failed", err);
+        if (active) toast.error(describeLoadError(err, "Gagal memuat data. Coba lagi."));
       } finally {
         if (active) setLoading(false);
       }

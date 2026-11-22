@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
-import { apiErrorDetail } from "@/lib/api";
+import { describeLoadError } from "@/lib/api";
 import { login } from "@/lib/auth";
 import { AuthLayout, isValidPhone, normalizePhone } from "@/components/AuthLayout";
 import { Button, Field, Notice, PasswordField } from "@/components/ui";
@@ -36,8 +36,8 @@ export default function LoginPage() {
       await login(normalizePhone(phone), password);
       router.replace("/dashboard");
     } catch (err) {
-      const detail = apiErrorDetail(err);
-      setErrors({ password: typeof detail === "string" ? detail : "Login gagal. Coba lagi." });
+      console.error("[FarmLens] login failed", err);
+      setErrors({ password: describeLoadError(err, "Login gagal. Coba lagi.") });
     } finally {
       setLoading(false);
     }
