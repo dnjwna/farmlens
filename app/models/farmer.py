@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Float, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, Float, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -15,6 +15,8 @@ class Farmer(Base):
     province = Column(String(100))
     city = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Embedded in every JWT ("ver"). Incrementing it logs out all existing sessions.
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
 
     farms = relationship("Farm", back_populates="farmer")
     diagnoses = relationship("Diagnosis", back_populates="farmer")
@@ -60,6 +62,10 @@ class Diagnosis(Base):
     farmer = relationship("Farmer", back_populates="diagnoses")
     farm = relationship("Farm", back_populates="diagnoses")
 
+    @property
+    def farm_name(self):
+        return self.farm.name if self.farm else None
+
 class InsurancePolicy(Base):
     __tablename__ = "insurance_policies"
 
@@ -100,3 +106,20 @@ class InsuranceClaim(Base):
 
     policy = relationship("InsurancePolicy", back_populates="claims")
     farmer = relationship("Farmer")
+
+class PasswordResetCode(Base):
+    """
+    One row per reset request, also for unknown numbers (farmer_id NULL, no code),
+    so rate limiting behaves identically whether or not the number is registered.
+    """
+    __tablename__ = "password_reset_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone_number = Column(String(20), nullable=False, index=True)  # canonical 62xxxx
+    farmer_id = Column(UUID(as_uuid=True), ForeignKey("farmers.id", ondelete="CASCADE"), nullable=True)
+    code_hash = Column(String(64), nullable=True)  # HMAC-SHA256, never the raw code
+    source = Column(String(10), nullable=False, default="otp")  # otp | admin
+    attempts = Column(Integer, nullable=False, default=0)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

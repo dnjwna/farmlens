@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.schemas.farmer import AdminResetRequest
 from app.services.insurance_service import run_daily_insurance_check
+from app.services.password_reset_service import ADMIN_CODE_TTL_MINUTES, issue_admin_code
 
 
 def require_admin(x_admin_key: Optional[str] = Header(default=None)) -> None:
@@ -30,3 +32,17 @@ async def run_daily_check(db: Session = Depends(get_db)):
     Idempotent: calling it again the same day does not create duplicate claims.
     """
     return await run_daily_insurance_check(db)
+
+
+@router.post("/users/reset-password")
+def admin_reset_password(data: AdminResetRequest, db: Session = Depends(get_db)):
+    """
+    Assisted recovery when WhatsApp delivery fails. An officer verifies the farmer
+    in person, then hands over this code; the farmer enters it on the reset page.
+    """
+    farmer, code = issue_admin_code(db, data.phone_number)
+    return {
+        "full_name": farmer.full_name,
+        "code": code,
+        "valid_hours": ADMIN_CODE_TTL_MINUTES // 60,
+    }

@@ -19,17 +19,21 @@ from app.core.scheduler import insurance_scheduler_loop
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
 
-Base.metadata.create_all(bind=engine)
+def init_db() -> None:
+    """Runs at startup (not import), so tests can import the app without a database."""
+    Base.metadata.create_all(bind=engine)
 
-# create_all() only creates missing tables; it never adds columns to existing ones.
-# Lightweight, idempotent schema upgrades for columns added after the first deploy.
-if engine.dialect.name == "postgresql":
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE farms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"))
+    # create_all() only creates missing tables; it never adds columns to existing ones.
+    # Lightweight, idempotent schema upgrades for columns added after the first deploy.
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE farms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"))
+            conn.execute(text("ALTER TABLE farmers ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0"))
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    init_db()
     task = None
     if settings.INSURANCE_SCHEDULER_ENABLED:
         task = asyncio.create_task(insurance_scheduler_loop())

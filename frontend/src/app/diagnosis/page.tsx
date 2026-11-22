@@ -3,52 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import {
-  AlarmClock,
-  Camera,
-  Eye,
-  ImageIcon,
-  Lightbulb,
-  ListChecks,
-  RotateCcw,
-  ScanSearch,
-  ShieldCheck,
-  Sprout,
-  TrendingDown,
-  UserRound,
-} from "lucide-react";
+import { Camera, ChevronRight, History, ImageIcon, RotateCcw, ScanSearch, Sprout } from "lucide-react";
 import api, { apiErrorDetail } from "@/lib/api";
 import { compressImage, formatBytes } from "@/lib/image";
 import { Farm, Diagnosis } from "@/types";
 import { AppHeader, PageShell } from "@/components/AppShell";
-import { Badge, Button, Card, Notice, Section, SelectField, Skeleton, type Tone } from "@/components/ui";
+import { Button, Card, Notice, SelectField, Skeleton } from "@/components/ui";
+import { DiagnosisResultView } from "@/components/DiagnosisResult";
+import { DiagnosisListItem } from "@/components/DiagnosisListItem";
 
-const LOW_CONFIDENCE = 0.7;
-
-const severityTone: Record<string, Tone> = { sehat: "success", ringan: "info", sedang: "warning", parah: "danger" };
-
-function urgencyTone(u: string): Tone {
-  const l = u.toLowerCase();
-  if (l.includes("segera")) return "danger";
-  if (l.includes("minggu")) return "warning";
-  return "success";
-}
-
-function parseSteps(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(String) : [String(parsed)];
-  } catch {
-    return [raw];
-  }
-}
+const RECENT_COUNT = 3;
 
 export default function DiagnosisPage() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const [farms, setFarms] = useState<Farm[] | null>(null);
+  const [recent, setRecent] = useState<Diagnosis[] | null>(null);
   const [selectedFarm, setSelectedFarm] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -68,6 +39,10 @@ export default function DiagnosisPage() {
         setFarms([]);
         toast.error("Gagal memuat daftar lahan.");
       });
+    api
+      .get<Diagnosis[]>(`/diagnoses/?limit=${RECENT_COUNT + 1}`)
+      .then((r) => setRecent(r.data))
+      .catch(() => setRecent([]));
   }, []);
 
   useEffect(() => {
@@ -117,6 +92,7 @@ export default function DiagnosisPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data);
+      setRecent((prev) => (prev ? [res.data, ...prev] : [res.data]));
     } catch (err) {
       toast.error(apiErrorDetail(err) || "Gagal memeriksa foto. Coba lagi.");
     } finally {
@@ -124,13 +100,23 @@ export default function DiagnosisPage() {
     }
   };
 
-  const confidence = Math.round((result?.confidence_score ?? 0) * 100);
-  const steps = parseSteps(result?.action_steps ?? null);
-  const isInvalidPhoto = result?.disease_name?.toLowerCase().includes("tidak valid");
+  const showRecent = !preview && !result && !loading;
 
   return (
     <PageShell busy={loading}>
-      <AppHeader title="Periksa tanaman" backHref="/dashboard" />
+      <AppHeader
+        title="Periksa tanaman"
+        backHref="/dashboard"
+        action={
+          <Link
+            href="/diagnosis/riwayat"
+            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl px-3 text-[15px] font-bold text-primary active:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <History className="size-5" aria-hidden="true" />
+            Riwayat
+          </Link>
+        }
+      />
 
       <div className="space-y-5 px-5 pt-5">
         {farms === null ? (
@@ -208,100 +194,37 @@ export default function DiagnosisPage() {
 
         {result && (
           <div ref={resultRef} className="scroll-mt-20 space-y-4 pb-2" aria-live="polite">
-            <Card>
-              <p className="text-sm font-semibold text-muted-foreground">Hasil pemeriksaan</p>
-              <h2 className="mt-1 text-2xl font-extrabold leading-tight text-foreground">{result.disease_name}</h2>
-
-              {!isInvalidPhoto && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {result.severity && (
-                    <Badge tone={severityTone[result.severity] ?? "info"}>
-                      Keparahan: {result.severity}
-                    </Badge>
-                  )}
-                  {result.urgency && (
-                    <Badge tone={urgencyTone(result.urgency)} icon={AlarmClock}>
-                      {result.urgency}
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-4 border-t border-border pt-4">
-                <div className="flex items-baseline justify-between">
-                  <span id="confidence-label" className="text-[15px] font-semibold text-foreground">
-                    Keyakinan AI
-                  </span>
-                  <span className="text-lg font-bold text-foreground">{confidence}%</span>
-                </div>
-                <div
-                  role="meter"
-                  aria-labelledby="confidence-label"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={confidence}
-                  className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-muted"
-                >
-                  <div
-                    className={confidence >= LOW_CONFIDENCE * 100 ? "h-full rounded-full bg-primary" : "h-full rounded-full bg-caution"}
-                    style={{ width: `${confidence}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Perkiraan AI dari foto, bukan hasil uji laboratorium.
-                </p>
-              </div>
-            </Card>
-
-            {!isInvalidPhoto && confidence < LOW_CONFIDENCE * 100 && (
-              <Notice tone="warning" icon={UserRound} title="AI belum yakin">
-                Sebaiknya tunjukkan tanaman ini ke penyuluh pertanian (PPL) sebelum membeli obat.
-              </Notice>
-            )}
-
-            {result.warning_signs && result.warning_signs !== "-" && (
-              <Section icon={Eye} title="Yang terlihat di foto">
-                {result.warning_signs}
-              </Section>
-            )}
-
-            {!isInvalidPhoto && result.cause_explanation && (
-              <Section icon={Lightbulb} title="Kenapa ini terjadi" tone="warning">
-                {result.cause_explanation}
-              </Section>
-            )}
-
-            {!isInvalidPhoto && steps.length > 0 && (
-              <Section icon={ListChecks} title="Yang perlu kamu lakukan" tone="success">
-                <ol className="mt-1 space-y-3">
-                  {steps.map((step, i) => (
-                    <li key={i} className="flex gap-3">
-                      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary" aria-hidden="true">
-                        {i + 1}
-                      </span>
-                      <span className="pt-0.5">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </Section>
-            )}
-
-            {!isInvalidPhoto && result.estimated_yield_impact && result.estimated_yield_impact !== "-" && (
-              <Section icon={TrendingDown} title="Kalau tidak ditangani" tone="danger">
-                {result.estimated_yield_impact}
-              </Section>
-            )}
-
-            {!isInvalidPhoto && result.recommendation && (
-              <Section icon={ShieldCheck} title="Pencegahan musim depan" tone="info">
-                {result.recommendation}
-              </Section>
-            )}
-
+            <DiagnosisResultView result={result} />
+            <p className="text-center text-sm text-muted-foreground">Hasil ini tersimpan di Riwayat.</p>
             <Button variant="secondary" icon={RotateCcw} onClick={reset}>
               Periksa foto lain
             </Button>
           </div>
+        )}
+
+        {showRecent && recent && recent.length > 0 && (
+          <section aria-labelledby="recent-heading" className="pt-2">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="recent-heading" className="text-lg font-bold text-foreground">
+                Pemeriksaan terakhir
+              </h2>
+              {recent.length > RECENT_COUNT && (
+                <Link
+                  href="/diagnosis/riwayat"
+                  className="inline-flex min-h-12 items-center gap-0.5 rounded-xl px-3 text-[15px] font-bold text-primary active:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  Lihat semua <ChevronRight className="size-5" aria-hidden="true" />
+                </Link>
+              )}
+            </div>
+            <ul className="space-y-3">
+              {recent.slice(0, RECENT_COUNT).map((d) => (
+                <li key={d.id}>
+                  <DiagnosisListItem item={d} />
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
     </PageShell>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { apiErrorDetail } from "@/lib/api";
 import { login } from "@/lib/auth";
 import { AuthLayout, isValidPhone, normalizePhone } from "@/components/AuthLayout";
-import { Button, Field, PasswordField } from "@/components/ui";
+import { Button, Field, Notice, PasswordField } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ phone?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
+
+  // Read the query string on the client only (avoids a Suspense boundary for useSearchParams).
+  useEffect(() => {
+    const ended = new URLSearchParams(window.location.search).get("sesi") === "berakhir";
+    if (ended) setSessionEnded(true); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,6 +45,11 @@ export default function LoginPage() {
 
   return (
     <AuthLayout title="Masuk" subtitle="Gunakan nomor HP yang kamu daftarkan.">
+      {sessionEnded && (
+        <Notice tone="warning" className="mb-5">
+          Sesi kamu berakhir. Silakan masuk lagi.
+        </Notice>
+      )}
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <Field
           label="Nomor HP"
@@ -56,6 +68,14 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
         />
+        <div className="-mt-2 text-right">
+          <Link
+            href="/lupa-password"
+            className="inline-block py-2 text-[15px] font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Lupa password?
+          </Link>
+        </div>
         <Button type="submit" loading={loading} icon={LogIn}>
           {loading ? "Memeriksa..." : "Masuk"}
         </Button>

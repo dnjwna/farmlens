@@ -28,5 +28,11 @@ class Settings(BaseSettings):
     # Protects /api/v1/admin/*. Empty = admin endpoints disabled.
     ADMIN_API_KEY: str = ""
 
+    # Password-reset OTP delivery: "console" (dev: code printed in the server log) or "openwa"
+    OTP_PROVIDER: str = "console"
+    OPENWA_BASE_URL: str = "http://localhost:2785/api"
+    OPENWA_API_KEY: str = ""
+    OPENWA_SESSION_ID: str = ""
+
 
 settings = Settings()

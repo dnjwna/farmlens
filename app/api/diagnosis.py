@@ -1,6 +1,6 @@
 import logging
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 
 from app.core.database import get_db
@@ -83,12 +83,18 @@ async def create_diagnosis(
 
 @router.get("/", response_model=list[DiagnosisResponse])
 def list_diagnoses(
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     farmer: Farmer = Depends(get_current_farmer)
 ):
-    return db.query(Diagnosis).filter(
-        Diagnosis.farmer_id == farmer.id
-    ).order_by(Diagnosis.created_at.desc()).all()
+    return (
+        db.query(Diagnosis)
+        .options(joinedload(Diagnosis.farm))
+        .filter(Diagnosis.farmer_id == farmer.id)
+        .order_by(Diagnosis.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{diagnosis_id}", response_model=DiagnosisResponse)

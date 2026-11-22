@@ -219,3 +219,25 @@ async def diagnose_plant(
         "model": used_model,
         "weather_context": weather_context,
     }
+
+
+def delete_stored_images(image_urls: List[str]) -> int:
+    """
+    Best-effort removal of diagnosis photos from Supabase Storage.
+    Returns how many paths were sent for deletion; failures are logged, not raised.
+    """
+    if not (settings.SUPABASE_URL and settings.SUPABASE_SERVICE_KEY):
+        return 0
+    marker = f"/object/public/{settings.SUPABASE_BUCKET}/"
+    paths = [url.split(marker, 1)[1].split("?", 1)[0] for url in image_urls if url and marker in url]
+    if not paths:
+        return 0
+    try:
+        from supabase import create_client
+
+        supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+        supabase.storage.from_(settings.SUPABASE_BUCKET).remove(paths)
+        return len(paths)
+    except Exception as exc:
+        logger.warning("Failed to delete %d stored images: %s", len(paths), exc)
+        return 0

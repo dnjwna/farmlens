@@ -9,15 +9,15 @@ import {
   CloudRain,
   Droplets,
   Lightbulb,
-  LogOut,
   MapPin,
   MapPinOff,
   Plus,
   Sprout,
   Trash2,
+  UserRound,
   Wind,
 } from "lucide-react";
-import { getMe, logout } from "@/lib/auth";
+import { getMe } from "@/lib/auth";
 import api, { apiErrorDetail } from "@/lib/api";
 import { Farmer, Farm, WeatherData } from "@/types";
 import { PageShell } from "@/components/AppShell";
@@ -142,14 +142,13 @@ export default function DashboardPage() {
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            aria-label="Keluar dari akun"
-            className="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/15 transition-colors duration-150 active:bg-white/25 focus-visible:outline-2 focus-visible:outline-on-primary"
+          <Link
+            href="/profile"
+            aria-label="Akun saya"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors duration-150 active:bg-white/25 focus-visible:outline-2 focus-visible:outline-on-primary"
           >
-            <LogOut className="size-5" aria-hidden="true" />
-          </button>
+            <UserRound className="size-6" aria-hidden="true" />
+          </Link>
         </div>
 
         {weather && (

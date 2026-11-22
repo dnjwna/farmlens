@@ -5,6 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { CalendarClock, CalendarDays, CloudRain, FlaskConical, MapPinOff, Plus, ShieldCheck, SunDim, Thermometer, X } from "lucide-react";
 import api, { apiErrorDetail } from "@/lib/api";
+import { parseServerDate } from "@/lib/format";
 import { Claim, Farm, Policy } from "@/types";
 import { AppHeader, PageShell } from "@/components/AppShell";
 import { Badge, Button, Card, Field, Notice, SelectField, Skeleton, formatRupiah } from "@/components/ui";
@@ -16,7 +17,7 @@ const CLAIM_LABEL: Record<string, { label: string; unit: string }> = {
 };
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  parseServerDate(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
 type PolicyForm = {
   farm_id: string;

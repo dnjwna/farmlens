@@ -20,6 +20,7 @@ export interface Farm {
 
 export interface Diagnosis {
   id: string;
+  farm_name?: string | null;
   farmer_id: string;
   farm_id: string;
   image_url: string;

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, field_validator, validator
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -71,6 +71,7 @@ class DiagnosisCreate(BaseModel):
 
 class DiagnosisResponse(BaseModel):
     id: UUID
+    farm_name: Optional[str] = None
     farmer_id: UUID
     farm_id: UUID
     image_url: str
@@ -125,3 +126,69 @@ class ClaimResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class FarmerUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, max_length=100)
+    province: Optional[str] = Field(default=None, max_length=100)
+    city: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("full_name")
+    @classmethod
+    def name_not_blank(cls, v):
+        if v is not None and len(v.strip()) < 2:
+            raise ValueError("Nama minimal 2 karakter")
+        return v.strip() if v is not None else v
+
+    @field_validator("province", "city")
+    @classmethod
+    def strip_or_none(cls, v):
+        if v is None:
+            return v
+        v = v.strip()
+        return v or None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_min_length(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password baru minimal 8 karakter")
+        return v
+
+
+class ForgotPasswordRequest(BaseModel):
+    phone_number: str
+
+
+class ResetPasswordRequest(BaseModel):
+    phone_number: str
+    code: str
+    new_password: str
+
+    @field_validator("code")
+    @classmethod
+    def code_format(cls, v):
+        v = v.strip()
+        if not (len(v) == 6 and v.isdigit()):
+            raise ValueError("Kode terdiri dari 6 angka")
+        return v
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_min_length(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password baru minimal 8 karakter")
+        return v
+
+
+class AdminResetRequest(BaseModel):
+    phone_number: str
+
+
+class AccountDelete(BaseModel):
+    password: str
