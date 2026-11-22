@@ -20,5 +20,4 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
   );
 }
 
-export const isValidPhone = (v: string) => /^(08|\+62)\d{7,13}$/.test(v.replace(/[\s-]/g, ""));
-export const normalizePhone = (v: string) => v.replace(/[\s-]/g, "");
+export { isValidPhone, normalizePhone } from "@/lib/phone";

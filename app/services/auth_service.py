@@ -2,12 +2,21 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.farmer import Farmer
 from app.schemas.farmer import FarmerRegister, FarmerLogin
+from app.core.phone import lookup_variants
 from app.core.security import hash_password, verify_password, create_access_token
 
+
+def find_farmer_by_phone(db: Session, raw_phone: str):
+    """Matches any input format (08..., +62..., 62...) to the stored number."""
+    variants = lookup_variants(raw_phone)
+    if not variants:
+        return None
+    return db.query(Farmer).filter(Farmer.phone_number.in_(variants)).first()
+
+
 def register_farmer(db: Session, data: FarmerRegister) -> Farmer:
-    existing = db.query(Farmer).filter(
-        Farmer.phone_number == data.phone_number
-    ).first()
+    # data.phone_number is already canonical (+62...), see FarmerRegister
+    existing = find_farmer_by_phone(db, data.phone_number)
 
     if existing:
         raise HTTPException(
@@ -28,9 +37,7 @@ def register_farmer(db: Session, data: FarmerRegister) -> Farmer:
     return farmer
 
 def login_farmer(db: Session, data: FarmerLogin) -> dict:
-    farmer = db.query(Farmer).filter(
-        Farmer.phone_number == data.phone_number
-    ).first()
+    farmer = find_farmer_by_phone(db, data.phone_number)
 
     if not farmer or not verify_password(data.password, farmer.password_hash):
         raise HTTPException(

@@ -7,6 +7,7 @@ import { KeyRound, LogOut, Phone, Save, Trash2, UserRound } from "lucide-react";
 import { apiErrorDetail } from "@/lib/api";
 import { changePassword, deleteAccount, getMe, logout, updateMe } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { formatPhone } from "@/lib/phone";
 import type { Farmer } from "@/types";
 import { AppHeader, PageShell } from "@/components/AppShell";
 import { Button, Card, ConfirmDialog, Field, PasswordField, Skeleton } from "@/components/ui";
@@ -128,7 +129,7 @@ export default function ProfilePage() {
                 <p className="truncate text-lg font-bold text-foreground">{farmer.full_name}</p>
                 <p className="flex items-center gap-1.5 text-[15px] text-muted-foreground">
                   <Phone className="size-4" aria-hidden="true" />
-                  {farmer.phone_number}
+                  {formatPhone(farmer.phone_number)}
                 </p>
                 <p className="text-sm text-muted-foreground">Bergabung {formatDate(farmer.created_at)}</p>
               </div>

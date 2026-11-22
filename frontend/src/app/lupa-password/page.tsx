@@ -8,6 +8,7 @@ import { ArrowLeft, KeyRound, MessageCircle } from "lucide-react";
 import { apiErrorDetail } from "@/lib/api";
 import { requestPasswordReset, resetPassword } from "@/lib/auth";
 import { AuthLayout, isValidPhone, normalizePhone } from "@/components/AuthLayout";
+import { formatPhone } from "@/lib/phone";
 import { Button, Field, Notice, PasswordField } from "@/components/ui";
 
 const RESEND_SECONDS = 60;
@@ -108,7 +109,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthLayout title="Masukkan kode" subtitle={`Cek WhatsApp di nomor ${normalizePhone(phone)}.`}>
+    <AuthLayout title="Masukkan kode" subtitle={`Cek WhatsApp di nomor ${formatPhone(phone)}.`}>
       <Notice tone="info" className="mb-5">
         Kode berlaku 10 menit. Jangan berikan kode ini ke siapa pun. Kalau WhatsApp tidak masuk, minta bantuan
         penyuluh atau admin FarmLens untuk kode cadangan.

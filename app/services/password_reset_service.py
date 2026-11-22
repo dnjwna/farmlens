@@ -11,7 +11,6 @@ Security properties:
 import hashlib
 import hmac
 import logging
-import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
@@ -20,6 +19,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.phone import lookup_variants, phone_digits
 from app.core.security import hash_password
 from app.models.farmer import Farmer, PasswordResetCode
 from app.services.otp_sender import send_reset_code
@@ -35,23 +35,12 @@ INVALID_CODE = "Kode salah atau sudah kedaluwarsa. Minta kode baru."
 
 
 def canonical_phone(raw: str) -> Optional[str]:
-    """'0812-3456 7890' / '+62812...' / '62812...' -> '62812...'. None if not an Indonesian mobile number."""
-    digits = re.sub(r"\D", "", raw or "")
-    if digits.startswith("0"):
-        digits = "62" + digits[1:]
-    if not re.fullmatch(r"628\d{7,12}", digits):
-        return None
-    return digits
-
-
-def stored_phone_variants(canonical: str) -> list[str]:
-    """Numbers were stored as typed at registration (08..., +62..., 62...)."""
-    local = canonical[2:]
-    return [f"0{local}", f"+62{local}", f"62{local}"]
+    """Digits with country code (6281...), the key used for reset codes and WhatsApp."""
+    return phone_digits(raw)
 
 
 def find_farmer_by_phone(db: Session, canonical: str) -> Optional[Farmer]:
-    return db.query(Farmer).filter(Farmer.phone_number.in_(stored_phone_variants(canonical))).first()
+    return db.query(Farmer).filter(Farmer.phone_number.in_(lookup_variants(canonical))).first()
 
 
 def _hash_code(code: str) -> str:

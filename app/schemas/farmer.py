@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, field_validator, validator
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.phone import INVALID_PHONE_MESSAGE, normalize_phone
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -13,13 +15,24 @@ class FarmerRegister(BaseModel):
     province: Optional[str] = None
     city: Optional[str] = None
 
-    @validator('phone_number')
-    def phone_must_be_valid(cls, v):
-        if not (v.startswith('08') or v.startswith('+62')):
-            raise ValueError('Nomor HP harus diawali 08 atau +62')
+    @field_validator('full_name')
+    @classmethod
+    def name_not_blank(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError('Nama wajib diisi')
         return v
 
-    @validator('password')
+    @field_validator('phone_number')
+    @classmethod
+    def phone_must_be_valid(cls, v):
+        canonical = normalize_phone(v)
+        if canonical is None:
+            raise ValueError(INVALID_PHONE_MESSAGE)
+        return canonical  # always stored as +62...
+
+    @field_validator('password')
+    @classmethod
     def password_min_length(cls, v):
         if len(v) < 8:
             raise ValueError('Password minimal 8 karakter')

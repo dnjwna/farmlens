@@ -14,7 +14,8 @@ from app.api.weather import router as weather_router
 from app.core.config import settings
 from sqlalchemy import text
 
-from app.core.database import Base, engine
+from app.core.database import Base, SessionLocal, engine
+from app.core.phone import normalize_existing_phone_numbers
 from app.core.scheduler import insurance_scheduler_loop
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
@@ -29,6 +30,10 @@ def init_db() -> None:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE farms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"))
             conn.execute(text("ALTER TABLE farmers ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0"))
+
+    # One-time (idempotent) normalization of phone numbers stored before +62 became canonical.
+    with SessionLocal() as db:
+        normalize_existing_phone_numbers(db)
 
 
 @asynccontextmanager
