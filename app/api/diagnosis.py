@@ -8,6 +8,7 @@ from app.api.auth import get_current_farmer
 from app.models.farmer import Farmer, Diagnosis, Farm
 from app.schemas.farmer import DiagnosisResponse
 from app.services.diagnosis_service import DiagnosisError, diagnose_plant
+from app.services.weather_service import get_recent_weather_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/diagnoses", tags=["Diagnosis"])
@@ -36,12 +37,21 @@ async def create_diagnosis(
     if len(image_bytes) > MAX_SIZE_MB * 1024 * 1024:
         raise HTTPException(status_code=400, detail=f"Ukuran file maksimal {MAX_SIZE_MB}MB")
 
+    # Recent weather is supporting context only; diagnosis proceeds without it.
+    weather_context = None
+    if farm.latitude is not None and farm.longitude is not None:
+        try:
+            weather_context = await get_recent_weather_context(farm.latitude, farm.longitude)
+        except Exception as exc:
+            logger.warning("Weather context unavailable, diagnosing without it: %s", exc)
+
     try:
         result = await diagnose_plant(
             image_bytes,
             filename=file.filename or "image.jpg",
             mime_type=file.content_type,
             crop_type=farm.crop_type,
+            weather_context=weather_context,
         )
     except DiagnosisError as exc:
         logger.error("Diagnosis failed: %s", exc)

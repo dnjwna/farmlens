@@ -99,3 +99,74 @@ async def get_weather(latitude: float, longitude: float) -> dict:
         "forecast_7_days": forecast,
         "farming_advice": get_farming_advice(daily),
     }
+
+# ---------------------------------------------------------------------------
+# Recent-weather context for diagnosis
+# ---------------------------------------------------------------------------
+
+HUMID_DAY_THRESHOLD = 85  # % mean RH; sustained high humidity favours fungal disease
+RAIN_DAY_THRESHOLD = 1.0  # mm; days with at least this much rain count as rainy
+
+
+def summarize_recent_weather(daily: dict) -> Optional[str]:
+    """
+    Turn Open-Meteo daily data for past days into one Indonesian sentence.
+    Pure function so it can be unit-tested without network access.
+    Missing values (None) are skipped; returns None if nothing usable remains.
+    """
+    def clean(key: str) -> list:
+        return [v for v in daily.get(key, []) if v is not None]
+
+    rain = clean("precipitation_sum")
+    rh = clean("relative_humidity_2m_mean")
+    tmax = clean("temperature_2m_max")
+    tmin = clean("temperature_2m_min")
+    if not (rain or rh or tmax):
+        return None
+
+    parts = []
+    if rain:
+        rainy = sum(1 for r in rain if r >= RAIN_DAY_THRESHOLD)
+        parts.append(
+            f"total hujan {sum(rain):.0f} mm ({rainy} dari {len(rain)} hari hujan)"
+        )
+    if rh:
+        humid = sum(1 for h in rh if h >= HUMID_DAY_THRESHOLD)
+        parts.append(
+            f"kelembapan rata-rata {sum(rh) / len(rh):.0f}% "
+            f"({humid} hari dengan kelembapan >= {HUMID_DAY_THRESHOLD}%)"
+        )
+    if tmax and tmin:
+        parts.append(f"suhu {min(tmin):.0f}-{max(tmax):.0f} derajat C")
+
+    n_days = max(len(rain), len(rh), len(tmax))
+    return f"{n_days} hari terakhir: " + ", ".join(parts) + "."
+
+
+async def get_recent_weather_context(
+    latitude: float, longitude: float, days: int = 7
+) -> Optional[str]:
+    """
+    Fetch the last `days` days of weather for a location and summarise it.
+    Today is excluded because its values are still partly forecast.
+    """
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "daily": [
+            "precipitation_sum",
+            "relative_humidity_2m_mean",
+            "temperature_2m_max",
+            "temperature_2m_min",
+        ],
+        "timezone": "Asia/Jakarta",
+        "past_days": days,
+        "forecast_days": 1,
+    }
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        response = await client.get(OPEN_METEO_URL, params=params)
+        response.raise_for_status()
+        daily = response.json()["daily"]
+
+    past_only = {key: values[:days] for key, values in daily.items() if key != "time"}
+    return summarize_recent_weather(past_only)

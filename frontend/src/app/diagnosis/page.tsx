@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { compressImage, formatBytes } from "@/lib/image";
 import { Farm, Diagnosis } from "@/types";
 import { ArrowLeft, Camera, Upload } from "lucide-react";
 
@@ -15,6 +16,8 @@ export default function DiagnosisPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Diagnosis | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [sizeInfo, setSizeInfo] = useState<string | null>(null);
 
   useEffect(() => {
     api.get("/farms/").then((r) => {
@@ -23,12 +26,27 @@ export default function DiagnosisPage() {
     });
   }, []);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
     setResult(null);
+    setPreparing(true);
+    try {
+      const out = await compressImage(f);
+      setFile(out.file);
+      setPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(out.file);
+      });
+      setSizeInfo(
+        out.compressed
+          ? `Foto dikecilkan ${formatBytes(out.originalBytes)} → ${formatBytes(out.compressedBytes)}`
+          : `Ukuran foto ${formatBytes(out.originalBytes)}`
+      );
+    } finally {
+      setPreparing(false);
+      e.target.value = "";
+    }
   };
 
   const handleSubmit = async () => {
@@ -119,10 +137,12 @@ export default function DiagnosisPage() {
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile}/>
         </div>
 
+        {sizeInfo && <p className="text-xs text-gray-400 text-center -mt-2">{sizeInfo}</p>}
+
         {preview && (
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || preparing}
             className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Upload size={18} />

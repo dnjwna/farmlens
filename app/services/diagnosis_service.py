@@ -83,6 +83,18 @@ dengan menyebut jenis/bahan aktifnya (misalnya "fungisida berbahan aktif mankoze
 - Jika foto bukan tanaman atau terlalu buram, set is_plant=false, disease_name="Foto tidak valid", \
 confidence_score=0, severity="sehat", urgency="tidak mendesak", dan jelaskan di warning_signs \
 foto seperti apa yang dibutuhkan.
+{weather_section}"""
+
+WEATHER_SECTION_TEMPLATE = """
+Data cuaca di lokasi lahan ini (Open-Meteo), {weather_context}
+Cara memakai data cuaca:
+- Gejala yang terlihat di foto tetap dasar UTAMA diagnosis. Jangan menyimpulkan penyakit dari cuaca saja.
+- Pakai cuaca hanya sebagai bukti pendukung untuk memilih di antara penyebab yang gejalanya mirip \
+(misalnya kelembapan tinggi berhari-hari mendukung penyakit jamur, cuaca kering dan panas mendukung \
+serangan tungau/thrips).
+- Jika cuaca relevan dengan penyebabnya, sebutkan angkanya secara konkret di cause_explanation \
+(contoh: "kelembapan di atas 85% selama 5 hari terakhir"), dan pertimbangkan cuaca saat menyusun action_steps.
+- Jika cuaca tidak relevan, abaikan dan jangan menyebutnya.
 """
 
 
@@ -99,14 +111,25 @@ def _model_candidates() -> List[str]:
     return models
 
 
+def build_prompt(crop_type: str, weather_context: Optional[str] = None) -> str:
+    weather_section = (
+        WEATHER_SECTION_TEMPLATE.format(weather_context=weather_context)
+        if weather_context
+        else ""
+    )
+    return PROMPT_TEMPLATE.format(
+        crop_type=crop_type or "tidak diketahui", weather_section=weather_section
+    )
+
+
 async def _call_gemini(
-    client: genai.Client, model: str, image_bytes: bytes, mime_type: str, crop_type: str
+    client: genai.Client, model: str, image_bytes: bytes, mime_type: str, prompt: str
 ) -> DiagnosisResult:
     response = await client.aio.models.generate_content(
         model=model,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            PROMPT_TEMPLATE.format(crop_type=crop_type or "tidak diketahui"),
+            prompt,
         ],
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -142,20 +165,25 @@ async def upload_to_storage(image_bytes: bytes, filename: str, mime_type: str) -
 
 
 async def diagnose_plant(
-    image_bytes: bytes, filename: str, mime_type: str, crop_type: str
+    image_bytes: bytes,
+    filename: str,
+    mime_type: str,
+    crop_type: str,
+    weather_context: Optional[str] = None,
 ) -> dict:
     """
     Diagnose a plant photo. Returns a dict ready to be stored in the Diagnosis model.
     Raises DiagnosisError if every configured model fails.
     """
     client = _client()
+    prompt = build_prompt(crop_type, weather_context)
     failures: List[str] = []
     result: Optional[DiagnosisResult] = None
     used_model = ""
 
     for model in _model_candidates():
         try:
-            result = await _call_gemini(client, model, image_bytes, mime_type, crop_type)
+            result = await _call_gemini(client, model, image_bytes, mime_type, prompt)
             used_model = model
             break
         except genai_errors.APIError as exc:
@@ -189,4 +217,5 @@ async def diagnose_plant(
         "estimated_yield_impact": result.estimated_yield_impact,
         "preventive_measures": result.preventive_measures,
         "model": used_model,
+        "weather_context": weather_context,
     }
