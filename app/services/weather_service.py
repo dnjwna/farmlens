@@ -170,3 +170,30 @@ async def get_recent_weather_context(
 
     past_only = {key: values[:days] for key, values in daily.items() if key != "time"}
     return summarize_recent_weather(past_only)
+
+
+async def get_daily_observations(latitude: float, longitude: float, past_days: int) -> list[dict]:
+    """
+    Daily rain and max temperature for the last `past_days` completed days
+    (today excluded because it is still partly forecast), oldest first.
+    Source is Open-Meteo's model data for past days, not a ground station.
+    """
+    past_days = max(1, min(past_days, 92))  # Open-Meteo accepts at most 92 past days
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "daily": ["precipitation_sum", "temperature_2m_max"],
+        "timezone": "Asia/Jakarta",
+        "past_days": past_days,
+        "forecast_days": 1,
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(OPEN_METEO_URL, params=params)
+        response.raise_for_status()
+        daily = response.json()["daily"]
+
+    rows = [
+        {"date": d, "rain_mm": r, "temp_max": t}
+        for d, r, t in zip(daily["time"], daily["precipitation_sum"], daily["temperature_2m_max"])
+    ]
+    return rows[:past_days]

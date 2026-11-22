@@ -31,6 +31,9 @@ class Farm(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Soft delete: hidden from the app but kept so diagnosis history and
+    # insurance claims that reference this farm stay intact.
+    deleted_at = Column(DateTime, nullable=True)
 
     farmer = relationship("Farmer", back_populates="farms")
     diagnoses = relationship("Diagnosis", back_populates="farm")

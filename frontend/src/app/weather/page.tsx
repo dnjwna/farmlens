@@ -1,116 +1,167 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import api from "@/lib/api";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { CloudRain, Droplets, Lightbulb, MapPinOff, Wind } from "lucide-react";
+import api, { apiErrorDetail } from "@/lib/api";
 import { Farm, WeatherData } from "@/types";
-import { ArrowLeft } from "lucide-react";
+import { AppHeader, PageShell } from "@/components/AppShell";
+import { Card, Notice, SelectField, Skeleton } from "@/components/ui";
+import { WeatherIcon } from "@/components/WeatherIcon";
+
+function dayLabel(date: string, index: number) {
+  if (index === 0) return "Hari ini";
+  if (index === 1) return "Besok";
+  return new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { weekday: "long" });
+}
+
+function dateLabel(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+}
 
 export default function WeatherPage() {
-  const router = useRouter();
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const [farms, setFarms] = useState<Farm[] | null>(null);
   const [selectedFarm, setSelectedFarm] = useState("");
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.get("/farms/").then((r) => {
-      setFarms(r.data);
-      if (r.data.length > 0) {
-        setSelectedFarm(r.data[0].id);
-        fetchWeather(r.data[0].id);
-      }
-    });
-  }, []);
-
-  const fetchWeather = async (farmId: string) => {
+  const fetchWeather = useCallback(async (farmId: string) => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await api.get(`/weather/farm/${farmId}`);
+      const res = await api.get<WeatherData>(`/weather/farm/${farmId}`);
       setWeather(res.data);
+    } catch (err) {
+      setWeather(null);
+      setError(apiErrorDetail(err) || "Gagal memuat cuaca. Periksa koneksi internet.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const weatherEmoji = (desc: string) => {
-    if (desc.includes("Cerah")) return "☀️";
-    if (desc.includes("Berawan") || desc.includes("Mendung")) return "⛅";
-    if (desc.includes("Hujan") || desc.includes("Gerimis")) return "🌧️";
-    if (desc.includes("Badai")) return "⛈️";
-    return "🌤️";
-  };
+  useEffect(() => {
+    api
+      .get<Farm[]>("/farms/")
+      .then((r) => {
+        setFarms(r.data);
+        const first = r.data.find((f) => f.latitude !== null && f.longitude !== null) ?? r.data[0];
+        if (first) {
+          setSelectedFarm(first.id);
+          fetchWeather(first.id);
+        }
+      })
+      .catch(() => {
+        setFarms([]);
+        setError("Gagal memuat daftar lahan.");
+      });
+  }, [fetchWeather]);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <div className="bg-blue-600 px-5 pt-12 pb-5 text-white flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-1">
-          <ArrowLeft size={22} />
-        </button>
-        <h1 className="text-lg font-bold">Cuaca Lahan</h1>
-      </div>
+    <PageShell busy={loading}>
+      <AppHeader title="Cuaca lahan" backHref="/dashboard" />
 
-      <div className="px-5 pt-5 space-y-4">
-        {/* Pilih lahan */}
-        <select
-          value={selectedFarm}
-          onChange={(e) => { setSelectedFarm(e.target.value); fetchWeather(e.target.value); }}
-          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none"
-        >
-          {farms.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </select>
+      <div className="space-y-5 px-5 pt-5">
+        {farms && farms.length > 1 && (
+          <SelectField
+            label="Lahan"
+            value={selectedFarm}
+            onChange={(e) => {
+              setSelectedFarm(e.target.value);
+              fetchWeather(e.target.value);
+            }}
+            options={farms.map((f) => ({ value: f.id, label: f.name }))}
+          />
+        )}
 
-        {loading && (
-          <div className="text-center py-10 text-gray-400">Memuat data cuaca...</div>
+        {farms && farms.length === 0 && (
+          <Notice tone="warning" title="Belum ada lahan">
+            Tambahkan lahan dengan lokasi untuk melihat cuacanya.{" "}
+            <Link href="/farms/add" className="font-bold underline underline-offset-4">
+              Tambah lahan
+            </Link>
+          </Notice>
+        )}
+
+        {error && (
+          <Notice tone="warning" icon={MapPinOff}>
+            {error}
+          </Notice>
+        )}
+
+        {(loading || farms === null) && (
+          <div className="space-y-4" role="status">
+            <span className="sr-only">Memuat cuaca...</span>
+            <Skeleton className="h-44 w-full rounded-2xl" />
+            <Skeleton className="h-20 w-full rounded-2xl" />
+            <Skeleton className="h-80 w-full rounded-2xl" />
+          </div>
         )}
 
         {weather && !loading && (
           <>
-            {/* Cuaca sekarang */}
-            <div className="bg-blue-600 rounded-2xl p-5 text-white">
-              <p className="text-blue-200 text-xs">{weather.farm_name} — Sekarang</p>
-              <div className="flex items-center justify-between mt-2">
+            <section className="rounded-2xl bg-primary p-5 text-on-primary" aria-label="Cuaca sekarang">
+              <p className="text-sm text-on-primary-muted">Sekarang di {weather.farm_name}</p>
+              <div className="mt-3 flex items-center gap-4">
+                <WeatherIcon description={weather.current.weather} className="size-14" />
                 <div>
-                  <p className="text-5xl font-bold">{weather.current.temperature}°</p>
-                  <p className="text-blue-200 mt-1">{weather.current.weather}</p>
-                </div>
-                <div className="text-right text-sm text-blue-200 space-y-1">
-                  <p>💧 Kelembaban {weather.current.humidity}%</p>
-                  <p>💨 Angin {weather.current.wind_speed} km/h</p>
-                  <p>🌧 Hujan {weather.current.precipitation}mm</p>
+                  <p className="text-5xl font-extrabold leading-none">{Math.round(weather.current.temperature)}°C</p>
+                  <p className="mt-1 text-base font-semibold">{weather.current.weather}</p>
                 </div>
               </div>
-            </div>
-
-            {/* Rekomendasi */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <p className="text-amber-800 text-xs font-semibold mb-1">💡 Rekomendasi</p>
-              <p className="text-amber-700 text-sm leading-relaxed">{weather.farming_advice}</p>
-            </div>
-
-            {/* Forecast 7 hari */}
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-              <p className="font-bold text-gray-800 px-4 pt-4 pb-2">Prakiraan 7 Hari</p>
-              {weather.forecast_7_days.map((day, i) => (
-                <div key={i} className="flex items-center justify-between px-4 py-3 border-t border-gray-50">
-                  <div className="flex items-center gap-3 w-24">
-                    <span className="text-xl">{weatherEmoji(day.weather)}</span>
-                    <span className="text-xs text-gray-500">
-                      {i === 0 ? "Hari ini" : new Date(day.date).toLocaleDateString("id-ID", { weekday: "short" })}
-                    </span>
+              <dl className="mt-5 grid grid-cols-3 gap-2">
+                {[
+                  { icon: Droplets, label: "Kelembapan", value: `${weather.current.humidity}%` },
+                  { icon: Wind, label: "Angin", value: `${weather.current.wind_speed} km/j` },
+                  { icon: CloudRain, label: "Hujan", value: `${weather.current.precipitation} mm` },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="flex flex-col rounded-xl bg-primary-pressed p-3">
+                    <dt className="order-3 text-[13px] text-on-primary-muted">{label}</dt>
+                    <Icon className="order-1 size-5" aria-hidden="true" />
+                    <dd className="order-2 mt-1 text-base font-bold">{value}</dd>
                   </div>
-                  <span className="text-xs text-gray-400 flex-1 text-center">{day.weather}</span>
-                  <div className="flex gap-2 text-sm">
-                    <span className="font-semibold text-gray-800">{day.temp_max}°</span>
-                    <span className="text-gray-400">{day.temp_min}°</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </dl>
+            </section>
+
+            <Notice tone="info" icon={Lightbulb} title="Saran untuk minggu ini">
+              {weather.farming_advice}
+            </Notice>
+
+            <Card className="p-0">
+              <h2 className="px-4 pb-2 pt-4 text-lg font-bold text-foreground">Prakiraan 7 hari</h2>
+              <ul>
+                {weather.forecast_7_days.map((day, i) => (
+                  <li key={day.date} className="flex min-h-16 items-center gap-3 border-t border-border px-4 py-3">
+                    <div className="w-24 shrink-0">
+                      <p className="text-[15px] font-bold capitalize text-foreground">{dayLabel(day.date, i)}</p>
+                      <p className="text-sm text-muted-foreground">{dateLabel(day.date)}</p>
+                    </div>
+                    <WeatherIcon description={day.weather} className="size-7 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] text-foreground">{day.weather}</p>
+                      {day.rain_mm > 0 && (
+                        <p className="flex items-center gap-1 text-sm text-info-strong">
+                          <CloudRain className="size-4" aria-hidden="true" />
+                          {day.rain_mm} mm
+                        </p>
+                      )}
+                    </div>
+                    <p className="shrink-0 text-right">
+                      <span className="text-base font-bold text-foreground">{Math.round(day.temp_max)}°</span>
+                      <span className="sr-only"> tertinggi, </span>
+                      <span className="ml-1.5 text-[15px] text-muted-foreground">{Math.round(day.temp_min)}°</span>
+                      <span className="sr-only"> terendah</span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            <p className="pb-2 text-center text-sm text-muted-foreground">Data cuaca: Open-Meteo</p>
           </>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

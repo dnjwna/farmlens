@@ -25,3 +25,11 @@ api.interceptors.response.use(
 );
 
 export default api;
+/** Extracts FastAPI's `detail` string from an error, if there is one. */
+export function apiErrorDetail(err: unknown): string | undefined {
+  if (axios.isAxiosError(err)) {
+    const detail = (err.response?.data as { detail?: unknown } | undefined)?.detail;
+    if (typeof detail === "string") return detail;
+  }
+  return undefined;
+}

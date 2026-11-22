@@ -1,3 +1,6 @@
+from datetime import datetime
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -5,7 +8,7 @@ from jose import JWTError
 
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models.farmer import Farmer, Farm
+from app.models.farmer import Farmer, Farm, InsurancePolicy
 from app.schemas.farmer import (
     FarmerRegister, FarmerLogin, Token,
     FarmerResponse, FarmCreate, FarmResponse
@@ -64,4 +67,34 @@ def list_farms(
     db: Session = Depends(get_db),
     farmer: Farmer = Depends(get_current_farmer)
 ):
-    return db.query(Farm).filter(Farm.farmer_id == farmer.id).all()
+    return (
+        db.query(Farm)
+        .filter(Farm.farmer_id == farmer.id, Farm.deleted_at.is_(None))
+        .order_by(Farm.created_at)
+        .all()
+    )
+
+
+@farm_router.delete("/{farm_id}", status_code=204)
+def delete_farm(
+    farm_id: UUID,
+    db: Session = Depends(get_db),
+    farmer: Farmer = Depends(get_current_farmer)
+):
+    farm = db.query(Farm).filter(
+        Farm.id == farm_id, Farm.farmer_id == farmer.id, Farm.deleted_at.is_(None)
+    ).first()
+    if not farm:
+        raise HTTPException(status_code=404, detail="Lahan tidak ditemukan")
+
+    has_active_policy = db.query(InsurancePolicy).filter(
+        InsurancePolicy.farm_id == farm.id, InsurancePolicy.status == "active"
+    ).first()
+    if has_active_policy:
+        raise HTTPException(
+            status_code=409,
+            detail="Lahan ini masih punya polis asuransi aktif, jadi belum bisa dihapus.",
+        )
+
+    farm.deleted_at = datetime.utcnow()
+    db.commit()

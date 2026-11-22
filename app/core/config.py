@@ -20,5 +20,13 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = ""
     SUPABASE_BUCKET: str = "diagnoses"
 
+    # Daily parametric-insurance check
+    # In-process scheduler (fine for a single server). Disable it if an external
+    # cron calls the admin endpoint instead, to keep one source of truth.
+    INSURANCE_SCHEDULER_ENABLED: bool = True
+    INSURANCE_CHECK_HOUR: int = 6  # local time, Asia/Jakarta
+    # Protects /api/v1/admin/*. Empty = admin endpoints disabled.
+    ADMIN_API_KEY: str = ""
+
 
 settings = Settings()

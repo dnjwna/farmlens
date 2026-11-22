@@ -25,7 +25,8 @@ async def create_diagnosis(
 ):
     farm = db.query(Farm).filter(
         Farm.id == farm_id,
-        Farm.farmer_id == farmer.id
+        Farm.farmer_id == farmer.id,
+        Farm.deleted_at.is_(None),
     ).first()
     if not farm:
         raise HTTPException(status_code=404, detail="Lahan tidak ditemukan")

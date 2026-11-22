@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.api.auth import get_current_farmer
 from app.models.farmer import Farmer, InsurancePolicy, InsuranceClaim
 from app.schemas.farmer import PolicyCreate, PolicyResponse, ClaimResponse
-from app.services.insurance_service import create_policy, check_and_trigger_claims
+from app.services.insurance_service import create_policy
 
 router = APIRouter(prefix="/insurance", tags=["Insurance"])
 
@@ -53,18 +53,3 @@ def list_claims(
     return db.query(InsuranceClaim).filter(
         InsuranceClaim.farmer_id == farmer.id
     ).order_by(InsuranceClaim.created_at.desc()).all()
-
-
-@router.post("/check-triggers")
-async def manual_check_triggers(
-    db: Session = Depends(get_db),
-    farmer: Farmer = Depends(get_current_farmer)
-):
-    """
-    Trigger manual untuk test — di production ini dipanggil scheduler otomatis tiap hari.
-    """
-    claims = await check_and_trigger_claims(db)
-    return {
-        "message": f"{len(claims)} klaim baru dibuat",
-        "claims_created": len(claims)
-    }

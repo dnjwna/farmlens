@@ -1,17 +1,68 @@
 @import "tailwindcss";
 
-:root {
-  --green-primary: #16a34a;
-  --green-light: #dcfce7;
+/*
+ * FarmLens design tokens.
+ * Base palette from UI UX Pro Max ("agriculture farmer mobile app", Minimalism & Swiss Style).
+ * Every text/background pair below was checked for WCAG AA (>= 4.5:1 text, >= 3:1 control borders).
+ * Light theme only: the app is used outdoors in sunlight, where a light high-contrast UI reads best.
+ */
+@theme {
+  --color-primary: #15803d;
+  --color-primary-pressed: #166534;
+  --color-on-primary: #ffffff;
+  --color-on-primary-muted: #dcfce7;
+  --color-background: #f0fdf4;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-muted: #f0f7f3;
+  --color-muted-foreground: #475569;
+  --color-border: #cfe3d6;
+  --color-input: #7c8b83;
+  --color-ring: #15803d;
+  --color-destructive: #b91c1c;
+  --color-primary-deep: #14532d;
+  --color-caution: #b45309;
+  --color-skeleton: #e2ece6;
+
+  --color-success-soft: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-success-strong: #14532d;
+  --color-warning-soft: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-warning-strong: #78350f;
+  --color-danger-soft: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-strong: #991b1b;
+  --color-info-soft: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-strong: #1e3a8a;
 }
 
-* {
-  box-sizing: border-box;
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  background-color: #e3ede6;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: #f9fafb;
-  max-width: 480px;  /* Mobile-first: max width seperti layar HP */
-  margin: 0 auto;
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,18 +1,50 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.database import engine, Base
-from app.api.auth import router as auth_router, farm_router
+
+import app.models.farmer  # noqa: F401  (registers models before create_all)
+from app.api.admin import router as admin_router
+from app.api.auth import farm_router, router as auth_router
 from app.api.diagnosis import router as diagnosis_router
-from app.api.weather import router as weather_router
 from app.api.insurance import router as insurance_router
-import app.models.farmer
+from app.api.weather import router as weather_router
+from app.core.config import settings
+from sqlalchemy import text
+
+from app.core.database import Base, engine
+from app.core.scheduler import insurance_scheduler_loop
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
 
 Base.metadata.create_all(bind=engine)
+
+# create_all() only creates missing tables; it never adds columns to existing ones.
+# Lightweight, idempotent schema upgrades for columns added after the first deploy.
+if engine.dialect.name == "postgresql":
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE farms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"))
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = None
+    if settings.INSURANCE_SCHEDULER_ENABLED:
+        task = asyncio.create_task(insurance_scheduler_loop())
+    yield
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
 
 app = FastAPI(
     title="FarmLens API",
     description="Platform AI untuk petani kecil Indonesia",
-    version="0.4.0"
+    version="0.5.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -23,11 +55,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(farm_router, prefix="/api/v1")
-app.include_router(diagnosis_router, prefix="/api/v1")
-app.include_router(weather_router, prefix="/api/v1")
-app.include_router(insurance_router, prefix="/api/v1")
+for router in (auth_router, farm_router, diagnosis_router, weather_router, insurance_router, admin_router):
+    app.include_router(router, prefix="/api/v1")
+
 
 @app.get("/")
 def root():
